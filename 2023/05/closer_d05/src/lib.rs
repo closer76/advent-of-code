@@ -43,17 +43,11 @@ impl Mapping {
         'seed_queue: while !deque.is_empty() {
             let seedrange = deque.pop_front().unwrap();
             for rule in &self.rules {
-                match rule.try_convert_range(seedrange) {
-                    (Some(dest), None) => {
-                        result.push(dest);
-                        continue 'seed_queue;
-                    }
-                    (Some(dest), Some(remained)) => {
-                        result.push(dest);
-                        deque.push_back(remained);
-                        continue 'seed_queue;
-                    }
-                    (None, _) => continue,
+                let (in_range, out_range) = rule.try_convert_range(seedrange);
+                if !in_range.is_empty() {
+                    result.extend(in_range.iter());
+                    deque.extend(out_range.iter());
+                    continue 'seed_queue;
                 }
             }
             result.push(seedrange);
@@ -73,12 +67,25 @@ impl SeedRange {
     pub fn new(begin: u64, length: u64) -> Self {
         Self { begin, length }
     }
+
+    fn apply_delta(self, delta: i64) -> Self {
+        Self {
+            begin: (self.begin as i64 + delta) as u64,
+            length: self.length,
+        }
+    }
 }
 
 impl PartialOrd for SeedRange {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.begin.cmp(&other.begin))
     }
+}
+
+enum RangeStatus {
+    Less,
+    Hit,
+    Greater,
 }
 
 struct MappingItem {
@@ -102,41 +109,53 @@ impl MappingItem {
         }
     }
 
-    fn is_in_range(&self, pos: u64) -> bool {
-        pos >= self.begin && pos < self.end
+    fn test_range(&self, pos: u64) -> RangeStatus {
+        if pos < self.begin {
+            RangeStatus::Less
+        } else if pos < self.end {
+            RangeStatus::Hit
+        } else {
+            RangeStatus::Greater
+        }
     }
 
     fn try_convert(&self, src: u64) -> Option<u64> {
-        if self.is_in_range(src) {
+        if let RangeStatus::Hit = self.test_range(src) {
             Some((src as i64 + self.delta) as u64)
         } else {
             None
         }
     }
 
-    fn try_convert_range(&self, src: SeedRange) -> (Option<SeedRange>, Option<SeedRange>) {
+    fn try_convert_range(&self, src: SeedRange) -> (Vec<SeedRange>, Vec<SeedRange>) {
         match (
-            self.is_in_range(src.begin),
-            self.is_in_range(src.begin + src.length - 1),
+            self.test_range(src.begin),
+            self.test_range(src.begin + src.length - 1),
         ) {
-            (false, false) => (None, None),
-            (true, true) => {
-                let dest = SeedRange::new((src.begin as i64 + self.delta) as u64, src.length);
-                (Some(dest), None)
+            (RangeStatus::Less, RangeStatus::Less) | 
+            (RangeStatus::Greater, RangeStatus::Greater) => (vec![], vec![src]),
+            (RangeStatus::Hit, RangeStatus::Hit) => {
+                (vec![src.apply_delta(self.delta)], vec![])
             }
-            (true, false) => {
-                let dest =
-                    SeedRange::new((src.begin as i64 + self.delta) as u64, self.end - src.begin);
-                let remained = SeedRange::new(src.begin + dest.length, src.length - dest.length);
-                (Some(dest), Some(remained))
+            (RangeStatus::Hit, RangeStatus::Greater) => {
+                let in_range = SeedRange::new(src.begin, self.end - src.begin);
+                let out_range = SeedRange::new(src.begin + in_range.length, src.length - in_range.length);
+                (vec![in_range.apply_delta(self.delta)], vec![out_range])
             }
-            (false, true) => {
-                let remained = SeedRange::new(src.begin, self.begin - src.begin);
-                let dest = SeedRange::new(
-                    (self.begin as i64 + self.delta) as u64,
-                    src.length - remained.length,
-                );
-                (Some(dest), Some(remained))
+            (RangeStatus::Less, RangeStatus::Hit) => {
+                let out_range = SeedRange::new(src.begin, self.begin - src.begin);
+                let in_range = SeedRange::new(self.begin, src.length - out_range.length);
+                (vec![in_range.apply_delta(self.delta)], vec![out_range])
+            }
+            (RangeStatus::Less, RangeStatus::Greater) => {
+                // println!("Seed: {}..{}; Map: {}..{}", src.begin, src.begin + src.length, self.begin, self.end);
+                let out_range1 = SeedRange::new(src.begin, self.begin - src.begin);
+                let in_range = SeedRange::new(self.begin, self.end - self.begin);
+                let out_range2 = SeedRange::new(self.end, src.length - out_range1.length - in_range.length);
+                (vec![in_range.apply_delta(self.delta)], vec![out_range1, out_range2])
+            }
+            _ => {
+                panic!("Tail > Head... Impossible!!")
             }
         }
     }
@@ -191,5 +210,13 @@ mod tests {
             create_single_rule_mapping().convert_range(SeedRange::new(17, 10)),
             vec![SeedRange::new(12, 3), SeedRange::new(20, 7)]
         );
+    }
+
+    #[test]
+    fn seed_range_covers_rule() {
+        assert_eq!(
+            create_single_rule_mapping().convert_range(SeedRange::new(5, 20)),
+            vec![SeedRange::new(5, 10), SeedRange::new(5, 5), SeedRange::new(20, 5)]
+        )
     }
 }
