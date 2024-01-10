@@ -15,6 +15,7 @@ pub fn build_grids(input: &str) -> (Vec<Vec<Grid>>, usize, usize) {
         })
         .unwrap();
 
+    // Determines the pipe in the Start grid by checking its neighbors
     [
         Direction::Up,
         Direction::Down,
@@ -23,7 +24,7 @@ pub fn build_grids(input: &str) -> (Vec<Vec<Grid>>, usize, usize) {
     ]
     .into_iter()
     .for_each(|dir| {
-        if let Some((y, x)) = dir.from(start_y, start_x, (grids.len(), grids[0].len())) {
+        if let Some((y, x)) = dir.try_proceed(start_y, start_x, (grids.len(), grids[0].len())) {
             if grids[y][x].neighbors.contains(&dir.turn_180()) {
                 grids[start_y][start_x].neighbors.push(dir);
             }
@@ -56,7 +57,7 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn from(&self, y: usize, x: usize, max: (usize, usize)) -> Option<(usize, usize)> {
+    pub fn try_proceed(&self, y: usize, x: usize, max: (usize, usize)) -> Option<(usize, usize)> {
         let y = y as i64;
         let x = x as i64;
         let (cand_y, cand_x) = match self {
@@ -81,24 +82,6 @@ impl Direction {
             Direction::Right => Direction::Left,
         }
     }
-
-    pub fn turn_90(&self, is_ccw: bool) -> Self {
-        if is_ccw {
-            match self {
-                Direction::Up => Direction::Left,
-                Direction::Left => Direction::Down,
-                Direction::Down => Direction::Right,
-                Direction::Right => Direction::Up,
-            }
-        } else {
-            match self {
-                Direction::Up => Direction::Right,
-                Direction::Left => Direction::Up,
-                Direction::Down => Direction::Left,
-                Direction::Right => Direction::Down,
-            }
-        }
-    }
 }
 
 pub struct Grid {
@@ -106,7 +89,6 @@ pub struct Grid {
     pub distance: i32,
     pub visited: bool,
     pub is_start: bool,
-    pub is_in: bool,
 }
 
 impl Default for Grid {
@@ -116,7 +98,6 @@ impl Default for Grid {
             distance: 0,
             visited: false,
             is_start: false,
-            is_in: false,
         }
     }
 }
@@ -125,8 +106,6 @@ impl ToString for Grid {
     fn to_string(&self) -> String {
         let c = if self.is_start {
             'S'
-        } else if self.is_in {
-            'I'
         } else if !self.visited {
             '.'
         } else {

@@ -14,7 +14,7 @@ pub fn solve(input: &str) -> i32 {
         let (y, x) = queue.pop_front().unwrap();
         grids[y][x].visited = true;
         grids[y][x].neighbors.clone().into_iter().for_each(|dir| {
-            if let Some((ny, nx)) = dir.from(y, x, (height, width)) {
+            if let Some((ny, nx)) = dir.try_proceed(y, x, (height, width)) {
                 if grids[ny][nx].visited {
                     grids[y][x].distance = grids[ny][nx].distance + 1;
                 } else {
