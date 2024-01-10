@@ -5,7 +5,6 @@ use std::env;
 use std::fs;
 use std::io::{self, Error, ErrorKind};
 
-
 fn main() -> io::Result<()> {
     let args = env::args().collect::<Vec<_>>();
     if args.len() < 2 {
@@ -23,4 +22,3 @@ fn main() -> io::Result<()> {
 
     Ok(())
 }
-

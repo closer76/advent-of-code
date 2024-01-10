@@ -23,17 +23,7 @@ pub fn solve(input: &str) -> i32 {
             }
         })
     }
-
-    grids.iter().for_each(|grid_line| {
-        println!(
-            "{}",
-            grid_line
-                .iter()
-                .map(|grid| grid.to_string())
-                .collect::<Vec<_>>()
-                .join("")
-        );
-    });
+    // println!("{}", format_grids(&grids));
 
     grids
         .iter()

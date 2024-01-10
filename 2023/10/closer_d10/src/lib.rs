@@ -1,8 +1,8 @@
 pub fn build_grids(input: &str) -> (Vec<Vec<Grid>>, usize, usize) {
     let mut grids = input
-    .lines()
-    .map(|line| line.chars().map(|c| Grid::from_char(c)).collect::<Vec<_>>())
-    .collect::<Vec<_>>();
+        .lines()
+        .map(|line| line.chars().map(|c| Grid::from_char(c)).collect::<Vec<_>>())
+        .collect::<Vec<_>>();
 
     let (start_y, start_x) = grids
         .iter()
@@ -24,13 +24,27 @@ pub fn build_grids(input: &str) -> (Vec<Vec<Grid>>, usize, usize) {
     .into_iter()
     .for_each(|dir| {
         if let Some((y, x)) = dir.from(start_y, start_x, (grids.len(), grids[0].len())) {
-            if grids[y][x].neighbors.contains(&dir.invert()) {
+            if grids[y][x].neighbors.contains(&dir.turn_180()) {
                 grids[start_y][start_x].neighbors.push(dir);
             }
         }
     });
 
     (grids, start_y, start_x)
+}
+
+pub fn format_grids(grids: &Vec<Vec<Grid>>) -> String {
+    grids
+        .iter()
+        .map(|grid_line| {
+            grid_line
+                .iter()
+                .map(|grid| grid.to_string())
+                .collect::<Vec<_>>()
+                .join("")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -59,12 +73,30 @@ impl Direction {
         }
     }
 
-    pub fn invert(&self) -> Self {
+    pub fn turn_180(&self) -> Self {
         match self {
             Direction::Up => Direction::Down,
             Direction::Left => Direction::Right,
             Direction::Down => Direction::Up,
             Direction::Right => Direction::Left,
+        }
+    }
+
+    pub fn turn_90(&self, is_ccw: bool) -> Self {
+        if is_ccw {
+            match self {
+                Direction::Up => Direction::Left,
+                Direction::Left => Direction::Down,
+                Direction::Down => Direction::Right,
+                Direction::Right => Direction::Up,
+            }
+        } else {
+            match self {
+                Direction::Up => Direction::Right,
+                Direction::Left => Direction::Up,
+                Direction::Down => Direction::Left,
+                Direction::Right => Direction::Down,
+            }
         }
     }
 }
@@ -74,6 +106,7 @@ pub struct Grid {
     pub distance: i32,
     pub visited: bool,
     pub is_start: bool,
+    pub is_in: bool,
 }
 
 impl Default for Grid {
@@ -83,6 +116,7 @@ impl Default for Grid {
             distance: 0,
             visited: false,
             is_start: false,
+            is_in: false,
         }
     }
 }
@@ -91,6 +125,8 @@ impl ToString for Grid {
     fn to_string(&self) -> String {
         let c = if self.is_start {
             'S'
+        } else if self.is_in {
+            'I'
         } else if !self.visited {
             '.'
         } else {
