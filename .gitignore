@@ -1,3 +1,10 @@
 target
 Cargo.lock
 .DS_Store
+input_*.txt
+2022/04/i-am-closer/input.txt
+input.txt
+output.txt
+result.txt
+launch.json
+settings.json
