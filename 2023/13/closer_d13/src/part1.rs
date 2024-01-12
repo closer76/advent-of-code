@@ -24,28 +24,18 @@ fn handle_pattern(pattern: &Vec<&str>) -> u64 {
         })
     });
 
-    // println!("cols: {cols:?}");
-    // println!("rows: {rows:?}");
-
     evaluate(rows) * 100 + evaluate(cols)
 }
 
 fn evaluate(mut src: VecDeque<u64>) -> u64 {
     let mut dest = VecDeque::new();
-    'outer: while src.len() > 1 {
+    while src.len() > 1 {
         dest.push_front(src.pop_front().unwrap());
 
-        // println!("s: {:?}", src);
-        // println!("d: {:?}", dest);
-        let mut s_iter = src.iter();
-        let mut d_iter = dest.iter();
-        while let (Some(s), Some(d)) = (s_iter.next(), d_iter.next()) {
-            if *s != *d {
-                continue 'outer;
-            }
+        let all_equal = src.iter().zip(dest.iter()).all(|(s, d)| *s == *d);
+        if all_equal {
+            return dest.len() as u64;
         }
-        // println!("Hit!");
-        return dest.len() as u64;
     }
     0
 }
