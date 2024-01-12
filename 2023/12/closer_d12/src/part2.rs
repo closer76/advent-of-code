@@ -27,7 +27,7 @@ pub fn solve(input: &Vec<&str>) -> u64 {
                 .join(&[][..]);
 
             let mut memory = RefCell::new(HashMap::new());
-            solve_line_caches(&springs, &sequences, &mut memory) as u64
+            solve_line_caches(&springs, &sequences, &mut memory)
         })
         .sum()
 }
@@ -35,8 +35,8 @@ pub fn solve(input: &Vec<&str>) -> u64 {
 pub fn solve_line_caches<'a>(
     springs: &'a [char],
     sequences: &'a [usize],
-    memory: &RefCell<HashMap<(Vec<char>, Vec<usize>), usize>>,
-) -> usize {
+    memory: &RefCell<HashMap<(&'a [char], &'a [usize]), u64>>,
+) -> u64 {
     if sequences.is_empty() {
         if springs.contains(&'#') {
             0
@@ -51,18 +51,14 @@ pub fn solve_line_caches<'a>(
             .unwrap_or((springs.len(), &'_'))
             .0;
 
-        let mut sum = 0;
-
         (0..=end)
             .filter(|idx| closer_d12::can_fit(&springs[*idx..], sequences[0]))
-            .for_each(|idx| {
-                let new_springs = springs[(idx + sequences[0] + 1)..].to_vec();
-                let new_sequence = sequences[1..].to_vec();
+            .map(|idx| {
                 let c = memory
                     .borrow()
-                    .get(&(new_springs.clone(), new_sequence.clone()))
+                    .get(&(&springs[(idx + sequences[0] + 1)..], &sequences[1..]))
                     .map(|v| *v);
-                let x = match c {
+                match c {
                     Some(value) => value,
                     None => {
                         let value = solve_line_caches(
@@ -70,15 +66,14 @@ pub fn solve_line_caches<'a>(
                             &sequences[1..],
                             memory,
                         );
-                        memory
-                            .borrow_mut()
-                            .insert((new_springs, new_sequence), value);
+                        memory.borrow_mut().insert(
+                            (&springs[(idx + sequences[0] + 1)..], &sequences[1..]),
+                            value,
+                        );
                         value
                     }
-                };
-                sum += x;
-            });
-
-        sum
+                }
+            })
+            .sum()
     }
 }

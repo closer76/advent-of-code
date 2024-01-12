@@ -22,7 +22,7 @@ pub fn solve(input: &Vec<&str>) -> u64 {
         .sum()
 }
 
-pub fn solve_line(springs: &[char], sequences: &[usize]) -> usize {
+pub fn solve_line(springs: &[char], sequences: &[usize]) -> u64 {
     if sequences.is_empty() {
         if springs.contains(&'#') {
             0
