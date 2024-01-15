@@ -28,7 +28,7 @@ impl Platform {
         }
     }
 
-    pub fn tilt(&mut self, dir: Direction) {
+    pub fn tilt(mut self, dir: Direction) -> Self {
         match dir {
             Direction::North => {
                 for x in 0..self.width {
@@ -107,30 +107,37 @@ impl Platform {
                 }
             }
         }
+        self
     }
 
     pub fn diff_rocks(&self, other: &Self) -> Vec<(usize, usize)> {
-        let mut result = vec![];
-
         if self.height == other.height && self.width == other.width {
-            for y in 0..self.height {
-                for x in 0..self.width {
-                    if self.grids[y][x] != other.grids[y][x] {
-                        result.push((y, x));
-                    }
-                }
-            }
+            self.grids
+                .iter()
+                .zip(other.grids.iter())
+                .enumerate()
+                .map(|(y, (line_a, line_b))| {
+                    line_a
+                        .iter()
+                        .zip(line_b.iter())
+                        .enumerate()
+                        .filter(|(_, (ca, cb))| **ca != **cb)
+                        .map(|(x, _)| (y, x))
+                        .collect::<Vec<_>>()
+                })
+                .flatten()
+                .collect::<Vec<_>>()
+        } else {
+            vec![]
         }
-
-        result
     }
 
     pub fn eval(&self) -> u64 {
         self.grids
             .iter()
             .fold((0, self.height as u64), |(val, factor), row| {
-                let new_val = row.iter().filter(|c| **c == 'O').count() as u64 * factor + val;
-                (new_val, factor - 1)
+                let row_val = row.iter().filter(|c| **c == 'O').count() as u64 * factor;
+                (val + row_val, factor - 1)
             })
             .0
     }
@@ -157,12 +164,11 @@ mod test {
 
     #[test]
     fn test_tilt() {
-        let mut platform = Platform::parse(&test_data());
-
-        platform.tilt(Direction::North);
-        platform.tilt(Direction::West);
-        platform.tilt(Direction::South);
-        platform.tilt(Direction::East);
+        let platform = Platform::parse(&test_data())
+            .tilt(Direction::North)
+            .tilt(Direction::West)
+            .tilt(Direction::South)
+            .tilt(Direction::East);
 
         let expected = Platform::parse(&vec![
             ".....#....",
@@ -182,9 +188,7 @@ mod test {
 
     #[test]
     fn test_eval() {
-        let mut platform = Platform::parse(&test_data());
-
-        platform.tilt(Direction::North);
+        let platform = Platform::parse(&test_data()).tilt(Direction::North);
 
         assert_eq!(platform.eval(), 136);
     }

@@ -1,9 +1,7 @@
 use closer_d14::{Direction, Platform};
 
 pub fn solve(lines: &Vec<&str>) -> u64 {
-    let mut platform = Platform::parse(lines);
-    platform.tilt(Direction::North);
-    platform.eval()
+    Platform::parse(lines).tilt(Direction::North).eval()
 }
 
 // If we only need to solve Part 1, this algorithm is more simple.

@@ -9,10 +9,11 @@ pub fn solve(lines: &Vec<&str>) -> u64 {
     for idx in 1..=target_cycles {
         let orig = platform.clone();
 
-        platform.tilt(Direction::North);
-        platform.tilt(Direction::West);
-        platform.tilt(Direction::South);
-        platform.tilt(Direction::East);
+        platform = platform
+            .tilt(Direction::North)
+            .tilt(Direction::West)
+            .tilt(Direction::South)
+            .tilt(Direction::East);
 
         let diff_list = platform.diff_rocks(&orig);
         match history.get(&diff_list) {
@@ -20,7 +21,7 @@ pub fn solve(lines: &Vec<&str>) -> u64 {
                 let cycle_length = idx - first_idx;
                 let target = (target_cycles - first_idx) % cycle_length + first_idx;
                 return history.into_values().find(|(i, _)| *i == target).unwrap().1;
-            },
+            }
             _ => {
                 history.insert(diff_list, (idx, platform.eval()));
             }
