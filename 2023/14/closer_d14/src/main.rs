@@ -16,10 +16,8 @@ fn main() -> io::Result<()> {
 
     let contents = fs::read_to_string(&args[1])?;
 
-    let lines = contents.lines().collect::<Vec<_>>();
-
-    let ans1 = part1::solve(&lines);
-    let ans2 = part2::solve(&lines);
+    let ans1 = part1::solve(&contents.lines().collect());
+    let ans2 = part2::solve(&contents.lines().collect());
 
     println!("ans1 = {ans1}");
     println!("ans2 = {ans2}");

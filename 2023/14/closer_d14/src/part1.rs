@@ -1,4 +1,13 @@
+use closer_d14::{Direction, Platform};
+
 pub fn solve(lines: &Vec<&str>) -> u64 {
+    let mut platform = Platform::parse(lines);
+    platform.tilt(Direction::North);
+    platform.eval()
+}
+
+// If we only need to solve Part 1, this algorithm is more simple.
+pub fn _solve_directly(lines: &Vec<&str>) -> u64 {
     let height = lines.len();
     let width = lines[0].chars().count();
 
