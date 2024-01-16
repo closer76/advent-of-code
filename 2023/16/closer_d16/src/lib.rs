@@ -11,6 +11,7 @@ pub enum Dir {
     Up,
 }
 
+#[derive(Debug, Clone, Copy)]
 struct Visited {
     right: bool,
     down: bool,
@@ -59,6 +60,7 @@ impl IndexMut<Dir> for Visited {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Grid {
     kind: char,
     visited: Visited,
@@ -73,10 +75,11 @@ impl Grid {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Map {
     m: Vec<Vec<Grid>>,
-    height: i128,
-    width: i128,
+    pub height: usize,
+    pub width: usize,
 }
 
 impl Map {
@@ -85,8 +88,9 @@ impl Map {
             .iter()
             .map(|line| line.chars().map(Grid::new).collect::<Vec<_>>())
             .collect::<Vec<_>>();
-        let height = m.len() as i128;
-        let width = m[0].len() as i128;
+        let height = m.len();
+        let width = m.get(0).map(|r| r.len()).unwrap_or(0);
+
         Map { m, height, width }
     }
 
@@ -125,7 +129,7 @@ impl Map {
             cands
                 .into_iter()
                 .filter_map(|d| self.try_forward((y, x), d))
-                .filter(|((y, x), d)| !self.m[*y][*x].visited[*d])
+                .filter(|&((y, x), d)| !self.m[y][x].visited[d])
                 .for_each(|item| queue.push_back(item));
         }
         self
@@ -143,15 +147,17 @@ impl Map {
     }
 
     fn try_forward(&self, cur: (usize, usize), toward: Dir) -> Option<((usize, usize), Dir)> {
-        let (y, x) = (cur.0 as i128, cur.1 as i128);
+        type Signed = i64;
+        let (y, x) = (cur.0 as Signed, cur.1 as Signed);
         let new_pos = match toward {
             Dir::Right => (y, x + 1),
             Dir::Down => (y + 1, x),
             Dir::Left => (y, x - 1),
             Dir::Up => (y - 1, x),
         };
-
-        if (0..self.height).contains(&new_pos.0) && (0..self.width).contains(&new_pos.1) {
+        let h = self.height as Signed;
+        let w = self.width as Signed;
+        if (0..h).contains(&new_pos.0) && (0..w).contains(&new_pos.1) {
             Some(((new_pos.0 as usize, new_pos.1 as usize), toward))
         } else {
             None
