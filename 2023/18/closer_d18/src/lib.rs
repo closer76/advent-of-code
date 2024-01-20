@@ -1,4 +1,4 @@
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, BTreeSet, HashMap};
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,71 +54,29 @@ fn go(orig_y: i64, orig_x: i64, dir: Dir, steps: i64) -> (i64, i64) {
     }
 }
 
-pub fn eval_slow(dirs: &Vec<Dir>, steps: &Vec<i64>) -> i64 {
-    let mut current = (0, 0);
-    let mut min = (i64::MAX, i64::MAX);
-    let mut max = (i64::MIN, i64::MIN);
-
-    dirs.iter().zip(steps.iter()).for_each(|(&d, &c)| {
-        current = go(current.0, current.1, d, c);
-        min = (min.0.min(current.0), min.1.min(current.1));
-        max = (max.0.max(current.0), max.1.max(current.1));
-    });
-
-    let mut grids = vec![vec![false; (max.1 - min.1 + 3) as usize]; (max.0 - min.0 + 3) as usize];
-    let mut current = (-min.0, -min.1);
-    dirs.iter().zip(steps.iter()).for_each(|(&d, &c)| {
-        for _ in 0..c {
-            current = go(current.0, current.1, d, 1);
-            grids[(current.0 + 1) as usize][(current.1 + 1) as usize] = true;
-        }
-    });
-
-    grids
-        .iter()
-        .enumerate()
-        .map(|(y, row)| {
-            row.iter()
-                .enumerate()
-                .fold((0, false, false), |(acc, up, down), (x, &grid)| {
-                    if grid {
-                        (acc + 1, up ^ grids[y - 1][x], down ^ grids[y + 1][x])
-                    } else {
-                        if up && down {
-                            (acc + 1, up, down)
-                        } else {
-                            (acc, up, down)
-                        }
-                    }
-                })
-                .0
-        })
-        .sum::<i64>()
-}
-
 pub fn eval_fast(dirs: &Vec<Dir>, steps: &Vec<i64>) -> i64 {
-    let mut points = BinaryHeap::new();
+    let mut points = HashMap::new();
+    let mut ys = BTreeSet::new();
     let mut pos = (0_i64, 0_i64);
+
+    points.insert(i32::MIN as i64, BinaryHeap::new());
+    ys.insert(i32::MIN as i64);
 
     dirs.iter().zip(steps.iter()).for_each(|(&d, &s)| {
         pos = go(pos.0, pos.1, d, s);
-        points.push(pos);
+        ys.insert(pos.0);
+        if !points.contains_key(&pos.0) {
+            points.insert(pos.0, BinaryHeap::new());
+        }
+        points.get_mut(&pos.0).map(|m| m.push(pos.1));
     });
 
-    let mut levels = vec![(i32::MIN as i64, vec![])];
-    let mut cur_y = i64::MIN;
-    let mut row = Vec::new();
-    for v in points.into_sorted_vec() {
-        if v.0 != cur_y {
-            if !row.is_empty() {
-                levels.push((cur_y, row));
-                row = Vec::new();
-            }
-            cur_y = v.0;
-        }
-        row.push(v.1);
-    }
-    levels.push((cur_y, row));
+    let levels = ys
+        .into_iter()
+        .map(|y| (y, points[&y].clone().into_sorted_vec()))
+        .collect::<Vec<_>>();
+
+    println!("{levels:?}");
 
     levels
         .windows(2)
