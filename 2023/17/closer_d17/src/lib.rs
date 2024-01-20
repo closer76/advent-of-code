@@ -41,7 +41,7 @@ pub struct Walker {
 }
 
 impl Walker {
-    pub fn walk(&self) -> Vec<Vec<Dist>> {
+    pub fn walk(&self, min_steps: usize, max_steps: usize) -> Vec<Vec<Dist>> {
         let height = self.grids.len();
         let width = self.grids[0].len();
 
@@ -63,12 +63,14 @@ impl Walker {
             for ndir in [dir.cw(), dir.ccw()] {
                 let mut pos = (y, x);
                 let mut new_dist = dist;
-                for _ in 0..3 {
+                for steps in 0..max_steps {
                     if let Some(npos) = self.forward(ndir, pos.0, pos.1) {
                         new_dist += self.grids[npos.0][npos.1];
-                        if dists[npos.0][npos.1][ndir] > new_dist {
-                            dists[npos.0][npos.1][ndir] = new_dist;
-                            queue.push((Reverse(new_dist), npos.0, npos.1, ndir));
+                        if steps >= min_steps - 1 {
+                            if dists[npos.0][npos.1][ndir] > new_dist {
+                                dists[npos.0][npos.1][ndir] = new_dist;
+                                queue.push((Reverse(new_dist), npos.0, npos.1, ndir));
+                            }
                         }
                         pos = npos;
                     } else {

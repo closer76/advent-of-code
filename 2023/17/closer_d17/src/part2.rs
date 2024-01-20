@@ -1,6 +1,8 @@
 use closer_d17::*;
 
 pub fn solve(input: &str) -> Result<u64, std::io::Error> {
-    let mut walker = input.parse::<Walker>()?;
-    Ok(0)
+    let v = input.parse::<Walker>()?.walk(4, 10);
+    let dist = v.last().unwrap().last().unwrap();
+
+    Ok([dist.horizontal, dist.vertical].into_iter().min().unwrap())
 }
