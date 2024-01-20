@@ -1,7 +1,4 @@
-use std::cmp::Ordering;
-use std::collections::{BinaryHeap, VecDeque};
-use std::iter;
-use std::slice::Chunks;
+use std::collections::BinaryHeap;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -108,154 +105,149 @@ pub fn eval_fast(dirs: &Vec<Dir>, steps: &Vec<i64>) -> i64 {
         points.push(pos);
     });
 
-    let mut levels = Vec::new();
-    let mut cur_y = i64::MAX;
+    let mut levels = vec![(i32::MIN as i64, vec![])];
+    let mut cur_y = i64::MIN;
     let mut row = Vec::new();
-    for v in points.into_sorted_vec().chunks(2) {
-        let (y0, x0) = v[0];
-        let (y1, x1) = v[1];
-        assert_eq!(y0, y1);
-        if y0 != cur_y {
+    for v in points.into_sorted_vec() {
+        if v.0 != cur_y {
             if !row.is_empty() {
                 levels.push((cur_y, row));
                 row = Vec::new();
             }
-            cur_y = y0;
+            cur_y = v.0;
         }
-        row.push((x0, x1));
+        row.push(v.1);
     }
     levels.push((cur_y, row));
 
-    for row in &levels {
-        println!("{:?}", row);
-    }
+    levels
+        .windows(2)
+        .fold((0, vec![]), |(area, segments), row_pair| {
+            let (last_y, _) = row_pair[0];
+            let (cur_y, row) = &row_pair[1];
 
-    let mut last_y = i64::MIN;
+            let new_segments = proceed_row(&segments, row);
+            // println!("{}:: {:?} + {:?} = {:?}", row.0, segments, row.1, new_segments);
 
-    let v = levels
-        .iter()
-        .fold((0, vec![]), |(area, segments), row| {
-            let cur_y = row.0;
-            let inner_area = if segments.is_empty() {
-                0
-            } else {
-                eval_segments(&segments) * (cur_y - last_y - 1)
-            };
-            last_y = cur_y;
+            let inner_area = eval_segments(&segments) * (cur_y - last_y - 1);
+            let line_area = eval_segments(&merge_segments(&segments, &new_segments));
+            // println!("{inner_area} + {line_area}");
 
-            let mut result: Vec<(i64, i64)> = vec![];
-            let mut iter_prev = segments.iter();
-            let mut iter_cur = row.1.iter();
-            let mut seg_prev: Option<&(i64, i64)> = iter_prev.next();
-            let mut seg_cur = iter_cur.next();
-
-            loop {
-                let mut new_seg: Vec<(i64, i64)> = vec![];
-                match (seg_prev, seg_cur) {
-                    (Some(v_prev), Some(v_cur)) => {
-                        if v_prev.0 == v_cur.0 {
-                            if v_prev.1 != v_cur.1 {
-                                new_seg.push((v_prev.1.min(v_cur.1), v_prev.1.max(v_cur.1)));
-                            }
-                            seg_prev = iter_prev.next();
-                            seg_cur = iter_cur.next();
-                        } else if v_prev.1 == v_cur.1 {
-                            new_seg.push((v_prev.0, v_cur.0));
-                            seg_prev = iter_prev.next();
-                            seg_cur = iter_cur.next();
-                        } else if v_prev.1 == v_cur.0 || v_prev.0 == v_cur.1 {
-                            new_seg.push((v_prev.0.min(v_cur.0), v_prev.1.max(v_cur.1)));
-                            seg_prev = iter_prev.next();
-                            seg_cur = iter_cur.next();
-                        } else if v_prev.1 < v_cur.0 {
-                            new_seg.push((v_prev.0, v_prev.1));
-                            seg_prev = iter_prev.next();
-                        } else if v_cur.1 < v_prev.0 {
-                            new_seg.push(*v_cur);
-                            seg_cur = iter_cur.next()
-                        } else if v_prev.0 < v_cur.0 && v_prev.1 > v_cur.1 {
-                            new_seg.push((v_prev.0, v_cur.0));
-                            new_seg.push((v_cur.1, v_prev.1));
-                            seg_prev = iter_prev.next();
-                            seg_cur = iter_cur.next();
-                        } else {
-                            new_seg.push(*v_cur);
-                            seg_prev = iter_prev.next();
-                            seg_cur = iter_cur.next();
-                        }
-                    }
-                    (Some(v1), None) => {
-                        new_seg.push(*v1);
-                        seg_prev = iter_prev.next()
-                    }
-                    (None, Some(v2)) => {
-                        new_seg.push(*v2);
-                        seg_cur = iter_cur.next()
-                    }
-                    _ => break,
-                }
-
-                for seg in new_seg {
-                    match result.last_mut() {
-                        Some((_, x1)) if *x1 >= seg.0 => {
-                            *x1 = seg.1.max(*x1);
-                        }
-                        _ => {
-                            result.push((seg.0, seg.1));
-                        }
-                    }
-                }
-            }
-
-            println!("{last_y} - {:?}", result);
-
-            let line_area = eval_segments(&merge_segments(&segments, &result));
-            println!("{inner_area} + {line_area}");
-
-            (area + inner_area + line_area, result)
+            (area + inner_area + line_area, new_segments)
         })
-        .0;
-
-    v
+        .0
 }
 
-fn merge_segments(segs0: &Vec<(i64, i64)>, segs1: &Vec<(i64, i64)>) -> Vec<(i64, i64)> {
+fn proceed_row(base: &Vec<i64>, added: &Vec<i64>) -> Vec<i64> {
+    let mut base_iter = base.iter();
+    let mut added_iter = added.iter();
     let mut result = vec![];
-    let mut iter0 = segs0.iter();
-    let mut iter1 = segs1.iter();
-    let mut seg0 = iter0.next();
-    let mut seg1 = iter1.next();
 
-    while seg0.is_some() || seg1.is_some() {
-        match (seg0, seg1) {
-            (Some(v0), Some(v1)) => {
-                if v0.0 == v1.0 || v0.1 == v1.1 || v0.0 == v1.1 || v0.1 == v1.0 {
-                    result.push((v0.0.min(v1.0), v0.1.max(v1.1)));
-                    seg0 = iter0.next();
-                    seg1 = iter1.next();
-                } else if v0.0 < v1.0 {
-                    result.push(*v0);
-                    seg0 = iter0.next();
+    let mut base_point = base_iter.next();
+    let mut added_point = added_iter.next();
+
+    while base_point.is_some() || added_point.is_some() {
+        match (base_point, added_point) {
+            (Some(base_v), Some(added_v)) => {
+                if base_v == added_v {
+                    base_point = base_iter.next();
+                    added_point = added_iter.next();
+                } else if base_v < added_v {
+                    result.push(*base_v);
+                    base_point = base_iter.next();
                 } else {
-                    result.push(*v1);
-                    seg1 = iter1.next();
+                    result.push(*added_v);
+                    added_point = added_iter.next();
                 }
             }
-            (Some(v0), None) => {
-                result.push(*v0);
-                seg0 = iter0.next();
+            (Some(base_v), None) => {
+                result.push(*base_v);
+                base_point = base_iter.next();
             }
-            (None, Some(v1)) => {
-                result.push(*v1);
-                seg1 = iter1.next();
+            (None, Some(added_v)) => {
+                result.push(*added_v);
+                added_point = added_iter.next();
             }
-            _ => panic!("Impossible!"),
+            _ => panic!("Both are None??"),
         }
     }
 
     result
 }
 
-fn eval_segments(segs: &Vec<(i64, i64)>) -> i64 {
-    segs.iter().fold(0, |acc, (x0, x1)| acc + (x1 - x0 + 1))
+#[test]
+fn simple_tests() {
+    assert_eq!(proceed_row(&vec![], &vec![0, 6]), vec![0, 6]);
+    assert_eq!(proceed_row(&vec![0, 6], &vec![0, 2]), vec![2, 6]);
+    assert_eq!(proceed_row(&vec![2, 6], &vec![0, 2, 4, 6]), vec![0, 4]);
+    assert_eq!(proceed_row(&vec![0, 4], &vec![0, 1, 4, 6]), vec![1, 6]);
+    assert_eq!(proceed_row(&vec![1, 6], &vec![1, 6]), vec![]);
+}
+
+fn merge_segments(segs0: &Vec<i64>, segs1: &Vec<i64>) -> Vec<i64> {
+    let mut iter0 = segs0.iter().zip([true, false].into_iter().cycle());
+    let mut iter1 = segs1.iter().zip([true, false].into_iter().cycle());
+    let mut result = vec![];
+
+    let mut in0 = false;
+    let mut in1 = false;
+
+    let mut is_in = false;
+
+    let mut point0 = iter0.next();
+    let mut point1 = iter1.next();
+
+    while point0.is_some() || point1.is_some() {
+        let cand = match (point0, point1) {
+            (Some((&p0_v, p0_in)), Some((&p1_v, p1_in))) => {
+                if p0_v == p1_v {
+                    point0 = iter0.next();
+                    point1 = iter1.next();
+                    in0 = p0_in;
+                    in1 = p0_in;
+                    p0_v
+                } else if p0_v < p1_v {
+                    point0 = iter0.next();
+                    in0 = p0_in;
+                    p0_v
+                } else {
+                    point1 = iter1.next();
+                    in1 = p1_in;
+                    p1_v
+                }
+            }
+            (Some((&p0_v, p0_in)), None) => {
+                point0 = iter0.next();
+                in0 = p0_in;
+                p0_v
+            }
+            (None, Some((&p1_v, p1_in))) => {
+                point1 = iter1.next();
+                in1 = p1_in;
+                p1_v
+            }
+            _ => panic!("Both are None??"),
+        };
+
+        let new_is_in = in0 || in1;
+
+        if new_is_in != is_in {
+            result.push(cand);
+            is_in = new_is_in;
+        }
+    }
+
+    result
+}
+
+#[test]
+fn simple_merge_test() {
+    assert_eq!(merge_segments(&vec![0, 6], &vec![2, 6]), vec![0, 6]);
+    assert_eq!(merge_segments(&vec![2, 6], &vec![0, 4]), vec![0, 6]);
+    assert_eq!(merge_segments(&vec![0, 4], &vec![1, 6]), vec![0, 6]);
+}
+
+fn eval_segments(segs: &Vec<i64>) -> i64 {
+    segs.chunks(2)
+        .fold(0, |acc, chunk| acc + (chunk[1] - chunk[0] + 1))
 }
